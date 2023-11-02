@@ -1,0 +1,57 @@
+pipeline{
+    agent any
+    tools{
+        maven "maven"
+    }
+environment {
+        SONARQUBE_SCANNER_HOME = tool name: 'sonarscanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+    }
+    stages{
+        stage("Fetch code from github repo"){
+            steps{
+                checkout([$class: 'GitSCM',
+                branches: [[name: '*/main' ]],
+                extensions: scm.extensions,
+                userRemoteConfigs: [[
+                    url: 'https://github.com/anilreddypapana/springboot-app.git'
+                ]]
+            ])
+            }
+        }
+      stage('SonarQube Analysis') {
+           steps {
+withSonarQubeEnv('sonarscanner') {
+      sh 'mvn clean package sonar:sonar'
+    } 
+
+              }
+            }
+stage("This is to build the code"){
+            steps{
+                sh 'mvn compile'
+                echo 'Run Success'
+            }
+        }
+stage("This is to package the code"){
+            steps{
+                sh 'mvn package'
+                echo 'Run Success'
+            }
+        }
+       stage('Push artifacts into artifactory') {
+            steps {
+              rtUpload (
+                serverId: 'artifactory',
+                spec: '''{
+                      "files": [
+                        {
+                          "pattern": "*.war",
+                           "target": "libs-release/maven-jenkins-files/"
+                        }
+                    ]
+                }'''
+              )
+          }
+        }
+    }
+}
